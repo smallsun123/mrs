@@ -265,7 +265,7 @@ int loop(){
         goto failed;
     }
 
-	logmsg(log_info, "loop socket fd = %ld\n", svr_fd);
+	//logmsg(log_info, "loop socket fd = %ld\n", svr_fd);
 	
 	on = 1;
 	if ((ret = setsockopt(svr_fd, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(int))) < 0){
@@ -670,7 +670,7 @@ pid_t start_recod_video(char *room, char *input, int seq){
 
 		maxfd = sysconf(_SC_OPEN_MAX); 
 		for (fd = 0; fd < maxfd; ++fd) {    
-			logmsg(log_info, "close fd = %d\n", fd);
+			//logmsg(log_info, "close fd = %d\n", fd);
 			close(fd);
 		}   
 		fd = open("/dev/null", O_RDWR);
