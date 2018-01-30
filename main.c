@@ -479,6 +479,7 @@ int loop(){
     return 0;
 	
 failed:
+	usleep(1000);
 	return ret;
 }
 
@@ -731,6 +732,8 @@ pid_t start_recod_video(char *room, char *input, int seq){
 			filename,
 			NULL);
 
+		logmsg(log_error, "execl() error: ./ffmpeg -i %s -c:v copy -c:a copy -f flv -y %s\n", input, filename);
+
 		exit((int)0);
     }
 	return pid;
@@ -824,6 +827,7 @@ void stop_recod_video(char *room){
 			    	int ret = 0;
 					logmsg(log_info, "mv %s %s\n", exitpath, dst_path);
 					ret = execl("/bin/mv", "mv", exitpath, dst_path, NULL);
+					logmsg(log_error, "execl() error: mv %s %s\n", exitpath, dst_path);
 					exit(ret);
 				}
 			}
@@ -882,6 +886,8 @@ void stop_recod_video(char *room){
 				"-y",
 				strpath,
 				NULL);
+
+			logmsg(log_error, "execl() error: ./ffmpeg -f concat -i %s -c:v copy -c:a copy -y %s\n", txt, strpath);
 
 			exit((int)0);
     	}
