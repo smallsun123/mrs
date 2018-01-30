@@ -51,8 +51,9 @@ typedef struct msg_st_s{
 #define CONCURRENT_MAX 10
 #define BACKLOG	10
 
-#define SERVER_IP "10.27.96.11"
-#define SERVER_PORT 7070
+#define SERVER_IP "192.168.60.224"
+#define SERVER_PORT 8082
+
 
 pid_t g_spid;
 
@@ -112,7 +113,7 @@ int parse_msg(char *msg, int *type, char *url, char *roomid){
 	end = strchr(p, ';');
 	memcpy(url, p, end - p);
 
-	p = strstr(msg, "roomid");
+	p = strstr(msg, "caseid");
 	if(!p)
 		goto failed;
 	p = strchr(p, ':');
@@ -237,8 +238,8 @@ int post(char *ip, int port, char *page, char *msg){
 
 int sendurl(char *room, char *path){
 	char msg[1024] = {0};
-	char page[] = "zego/mixStreamSave";
-	sprintf(msg, "roomid=%s&path=%s", room, path);
+	char page[] = "videoRecord/";
+	sprintf(msg, "caseid=%s&path=%s", room, path);
     
 	return post(SERVER_IP, SERVER_PORT, page, msg); 
 }
@@ -263,6 +264,8 @@ int loop(){
 		ret = -1;
         goto failed;
     }
+
+	logmsg(log_info, "loop socket fd = %ld\n", svr_fd);
 	
 	on = 1;
 	if ((ret = setsockopt(svr_fd, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(int))) < 0){
@@ -519,7 +522,7 @@ void delete_room_task(char *room){
 }
 
 pid_t init_daemon(void){
-
+	int fd, maxfd;
 	pid_t pid = fork();  
 	if(pid > 0){	   //father
 		return pid;
@@ -528,6 +531,16 @@ pid_t init_daemon(void){
 		logmsg(log_error, "init_daemon() fork() error\n");
 		exit((int)-1);
 	}else if(pid == 0){  //son
+
+		maxfd = sysconf(_SC_OPEN_MAX); 
+		for (fd = 0; fd < maxfd; ++fd) {    
+			close(fd);
+		}   
+
+		fd = open("/dev/null", O_RDWR);
+		dup2(fd, STDIN_FILENO);
+		dup2(fd, STDOUT_FILENO);
+		dup2(fd, STDERR_FILENO);
 
 		if(signal(SIGINT, SIG_DFL) == SIG_ERR){
 			logmsg(log_error, "init_daemon signal(SIGINT, SIG_DFL) error=%d, errno=%s\n", errno, strerror(errno));
@@ -551,7 +564,7 @@ pid_t init_daemon(void){
 }  
 
 void cms_daemon(){
-	
+	int fd, maxfd;
 	pid_t pid;
     pid = fork();  
     if(pid > 0){		//father
@@ -564,6 +577,15 @@ void cms_daemon(){
 		logmsg(log_error, "daemon() fork() error\n");
     	exit((int)-1);
     }else if(pid == 0){	//son
+    	maxfd = sysconf(_SC_OPEN_MAX); 
+		for (fd = 0; fd < maxfd; ++fd) {    
+			close(fd);
+		}   
+
+		fd = open("/dev/null", O_RDWR);
+		dup2(fd, STDIN_FILENO);
+		dup2(fd, STDOUT_FILENO);
+		dup2(fd, STDERR_FILENO);
 
 		if(signal(SIGINT, SIG_DFL) == SIG_ERR){
 			logmsg(log_error, "daemon signal(SIGINT, SIG_DFL) error=%d, errno=%s\n", errno, strerror(errno));
@@ -636,6 +658,7 @@ void delete_room_seq(char *room){
 }
 
 pid_t start_recod_video(char *room, char *input, int seq){  
+	int fd, maxfd;
     pid_t pid = fork();
     if(pid > 0){//father
 		return pid;
@@ -644,6 +667,16 @@ pid_t start_recod_video(char *room, char *input, int seq){
 		logmsg(log_error, "start_recod_video() fork() error\n");
     	exit((int)-1);
     }else if(pid == 0){	//son
+
+		maxfd = sysconf(_SC_OPEN_MAX); 
+		for (fd = 0; fd < maxfd; ++fd) {    
+			logmsg(log_info, "close fd = %d\n", fd);
+			close(fd);
+		}   
+		fd = open("/dev/null", O_RDWR);
+		dup2(fd, STDIN_FILENO);
+		dup2(fd, STDOUT_FILENO);
+		dup2(fd, STDERR_FILENO);
 
 		signal(SIGCHLD, SIG_DFL);
 		signal(SIGINT, SIG_DFL);
@@ -705,6 +738,7 @@ pid_t start_recod_video(char *room, char *input, int seq){
 
 
 void stop_recod_video(char *room){
+	int fd, maxfd;
     pid_t pid = fork();
     if(pid > 0){//father
 		return;
@@ -713,6 +747,15 @@ void stop_recod_video(char *room){
 		logmsg(log_error, "stop_recod_video() fork() error\n");
     	exit((int)-1);
     }else if(pid == 0){	//son
+
+		maxfd = sysconf(_SC_OPEN_MAX); 
+		for (fd = 0; fd < maxfd; ++fd) {    
+			close(fd);
+		}   
+		fd = open("/dev/null", O_RDWR);
+		dup2(fd, STDIN_FILENO);
+		dup2(fd, STDOUT_FILENO);
+		dup2(fd, STDERR_FILENO);
 
 		signal(SIGCHLD, SIG_DFL);
 
@@ -729,6 +772,7 @@ void stop_recod_video(char *room){
 		int	status;
 	    spid = fork();
 	    if(spid > 0){//son
+	    	
 			rpid = waitpid(spid, &status, 0);
 			if(rpid < 0){
 				logmsg(log_error, "stop son wait gson spid=%u, rpid=%u, status=%d, errno=%d, errno=%s\n", 
@@ -768,6 +812,15 @@ void stop_recod_video(char *room){
 					logmsg(log_error, "mv file fork() error\n");
 			    	exit((int)-1);
 			    }else if(mvpid == 0){
+			    	maxfd = sysconf(_SC_OPEN_MAX); 
+					for (fd = 0; fd < maxfd; ++fd) {    
+						close(fd);
+					}   
+					fd = open("/dev/null", O_RDWR);
+					dup2(fd, STDIN_FILENO);
+					dup2(fd, STDOUT_FILENO);
+					dup2(fd, STDERR_FILENO);
+			
 			    	int ret = 0;
 					logmsg(log_info, "mv %s %s\n", exitpath, dst_path);
 					ret = execl("/bin/mv", "mv", exitpath, dst_path, NULL);
@@ -781,6 +834,15 @@ void stop_recod_video(char *room){
 			logmsg(log_error, "stop_recod_video() gson fork() error\n");
 	    	exit((int)-1);
 	    }else if(spid == 0){	//gradeson
+	    	maxfd = sysconf(_SC_OPEN_MAX); 
+			for (fd = 0; fd < maxfd; ++fd) {    
+				close(fd);
+			}   
+			fd = open("/dev/null", O_RDWR);
+			dup2(fd, STDIN_FILENO);
+			dup2(fd, STDOUT_FILENO);
+			dup2(fd, STDERR_FILENO);
+			
 			char roomdir[100] = {0};
 			sprintf(roomdir, "./%s", room);
 
@@ -828,7 +890,7 @@ void stop_recod_video(char *room){
 
 pid_t pause_recod_video(char *room){  
     pid_t pid;
-
+	int fd, maxfd;
     pid = fork();
     if(pid > 0){//father
 		return pid;
@@ -837,6 +899,15 @@ pid_t pause_recod_video(char *room){
 		logmsg(log_error, "pause_recod_video() fork() error\n");
     	exit((int)-1);
     }else if(pid == 0){	//son
+
+		maxfd = sysconf(_SC_OPEN_MAX); 
+		for (fd = 0; fd < maxfd; ++fd) {    
+			close(fd);
+		}   
+		fd = open("/dev/null", O_RDWR);
+		dup2(fd, STDIN_FILENO);
+		dup2(fd, STDOUT_FILENO);
+		dup2(fd, STDERR_FILENO);
 
 		signal(SIGCHLD, SIG_DFL);
 		
@@ -940,7 +1011,7 @@ void worker_signal_handle(int nsignal)
 	}
 
 	//fprintf(stdout, "=========== waitpid=%u , g_spid=%u =========\n", pid, g_spid);
-	logmsg(log_debug, "worker waitpid=%u, status=%d\n", pid, status);
+	logmsg(log_debug, "worker waitpid=%u, status=%d, signal=%d\n", pid, status, nsignal);
 }
 
 void signal_handle(int nsignal)
@@ -953,7 +1024,7 @@ void signal_handle(int nsignal)
 	}
 
 	//fprintf(stdout, "=========== waitpid=%u , g_spid=%u =========\n", pid, g_spid);
-	logmsg(log_debug, "master waitpid=%u, status=%d, workerpid=%u\n", pid, status, g_spid);
+	logmsg(log_debug, "master waitpid=%u, status=%d, workerpid=%u, signal=%d\n", pid, status, g_spid, nsignal);
 
 	if(pid == g_spid){
 		daemo_start = 1;
@@ -1060,8 +1131,8 @@ int worker_fun(){
 	int sid=0;
 
 	if((skey = ftok("./mrs", 1001)) == -1) {  
-        //fprintf(stderr,"[pid:%u]Creat Key Error£º%s\n", getpid(), strerror(errno));  
-		logmsg(log_error, "worker Creat Key Error£º%s\n", strerror(errno));
+        //fprintf(stderr,"[pid:%u]Creat Key Errorï¼š%s\n", getpid(), strerror(errno));  
+		logmsg(log_error, "worker Creat Key Errorï¼š%s\n", strerror(errno));
         goto failed; 
     }
     if ((sid = msgget(skey, 0666 | IPC_CREAT)) == -1) {
@@ -1085,8 +1156,8 @@ void master_fun(){
 restart:
 
 	if((rkey = ftok("./mrs", 1001)) == -1) {  
-        //fprintf(stderr,"Creat rKey Error£º%s\n",strerror(errno));  
-		logmsg(log_error, "master Creat rKey Error£º%s\n",strerror(errno));
+        //fprintf(stderr,"Creat rKey Errorï¼š%s\n",strerror(errno));  
+		logmsg(log_error, "master Creat rKey Errorï¼š%s\n",strerror(errno));
         exit((int)-1);  
     }
     if ((rid = msgget(rkey, 0666 | IPC_CREAT)) == -1) {
@@ -1162,6 +1233,9 @@ int main(int argc, char **argv){
 	signal(SIGINT, SIG_IGN);
 	//signal(SIGIO, SIG_IGN);
 
+
+	printf("argc = %d\n", argc);
+
 	struct sigaction act, oact;
 	act.sa_handler = signal_handle;
 	sigemptyset(&act.sa_mask);
@@ -1188,4 +1262,5 @@ int main(int argc, char **argv){
 
 	return 0;
 }
+
 
